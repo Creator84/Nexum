@@ -116,7 +116,12 @@
 
         function escapeHTML(str) {
             if (str === null || str === undefined) return '';
-            return str.toString().replace(/"/g, '&quot;');
+            return str.toString()
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/&/g, '&amp;')
+                .replace(/'/g, '&#x27;');
         }
 
         async function fetchEditorGames() {
