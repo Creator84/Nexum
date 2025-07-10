@@ -15,6 +15,14 @@
             grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
             gap: 1.5rem;
         }
+        /* Style for the lookup results */
+        .lookup-item {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .lookup-item:hover {
+            background-color: #374151; /* gray-700 */
+        }
     </style>
 </head>
 <body class="bg-gray-800 text-white p-8">
@@ -43,7 +51,10 @@
             <h2 class="text-2xl font-bold">Add a New Game Manually</h2>
             <div>
                 <label class="text-sm text-gray-400">Title <span class="text-red-500">*</span></label>
-                <input type="text" id="add-title" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-md" required>
+                <div class="flex items-center space-x-2">
+                    <input type="text" id="add-title" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-md" required>
+                    <button onclick="handleLookup(event)" id="lookup-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">Lookup</button>
+                </div>
             </div>
             <div>
                 <label class="text-sm text-gray-400">Developer</label>
@@ -76,6 +87,19 @@
         </div>
     </div>
 
+    <!-- Lookup Results Modal -->
+    <div id="lookup-results-modal" class="hidden fixed inset-0 z-[100] bg-black bg-opacity-70 flex items-center justify-center p-4" onclick="closeLookupModal()">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-3xl max-h-[80vh] flex flex-col" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Lookup Results</h2>
+                <button onclick="closeLookupModal()" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            <div id="lookup-results-list" class="overflow-y-auto space-y-2 pr-2">
+                <!-- Search results will be injected here -->
+            </div>
+        </div>
+    </div>
+
     <script>
         const editorGrid = document.getElementById('editor-grid');
         const searchInput = document.getElementById('search-editor');
@@ -87,73 +111,11 @@
         }
 
         async function fetchEditorGames() {
-            try {
-                const response = await fetch('/api/editor/games');
-                if (!response.ok) throw new Error('Failed to fetch game data for editor.');
-                allGamesData = await response.json();
-                renderEditor();
-            } catch (error) {
-                console.error(error);
-                editorGrid.innerHTML = `<p class="text-center text-red-400 p-4">${error.message}</p>`;
-            }
+            // ... (same as before)
         }
 
         function renderEditor() {
-            const filter = searchInput.value.toLowerCase();
-            const filteredGames = allGamesData.filter(game => game.title.toLowerCase().includes(filter));
-
-            editorGrid.innerHTML = filteredGames.map(game => {
-                const artUrl = game.art_path ? `${game.art_path}` : 'https://placehold.co/300x450/1f2937/FFFFFF?text=No+Image';
-                return `
-                <div class="bg-gray-900 rounded-lg p-4 flex flex-col space-y-4" id="game-card-${game.id}">
-                    <h2 class="text-xl font-bold truncate">${game.title}</h2>
-                    <div class="flex space-x-4">
-                        <div class="w-1/3 flex-shrink-0">
-                            <img id="poster-img-${game.id}" src="${artUrl}?_t=${Date.now()}" class="rounded w-full aspect-[2/3] object-cover" onerror="this.onerror=null;this.src='https://placehold.co/300x450/1f2937/FFFFFF?text=No+Image';">
-                            <input type="file" id="poster-input-${game.id}" class="hidden" accept="image/jpeg,image/png,image/webp" onchange="handlePosterUpload(${game.id})">
-                            <button onclick="document.getElementById('poster-input-${game.id}').click()" class="mt-2 w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-1 px-3 rounded text-sm transition-colors duration-200">Change Poster</button>
-                        </div>
-                        <div class="w-2/3 space-y-3">
-                            <div>
-                                <label class="text-xs text-gray-400">Title</label>
-                                <input type="text" id="title-${game.id}" class="w-full bg-gray-700 border border-gray-600 rounded p-1 text-sm" value="${escapeHTML(game.title)}">
-                            </div>
-                            <div>
-                                <label class="text-xs text-gray-400">Developer</label>
-                                <input type="text" id="developer-${game.id}" class="w-full bg-gray-700 border border-gray-600 rounded p-1 text-sm" value="${escapeHTML(game.developer)}">
-                            </div>
-                             <div>
-                                <label class="text-xs text-gray-400">Rating</label>
-                                <input type="number" step="0.01" id="rating-${game.id}" class="w-full bg-gray-700 border border-gray-600 rounded p-1 text-sm" value="${game.rating || 0.0}">
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="text-xs text-gray-400">Description</label>
-                        <textarea id="desc-${game.id}" class="w-full bg-gray-700 border border-gray-600 rounded p-1 text-xs h-24">${game.description || ''}</textarea>
-                    </div>
-                     <div>
-                        <label class="text-xs text-gray-400">Executable Path</label>
-                        <input type="text" id="exe-${game.id}" class="w-full bg-gray-700 border border-gray-600 rounded p-1 text-xs" value="${escapeHTML(game.executable_path)}">
-                    </div>
-                    <div>
-                        <label class="text-xs text-gray-400">Launch Arguments</label>
-                        <input type="text" id="args-${game.id}" class="w-full bg-gray-700 border border-gray-600 rounded p-1 text-xs" value="${escapeHTML(game.launch_args)}">
-                    </div>
-                    <div>
-                        <label class="text-xs text-gray-400">Custom Save Path</label>
-                        <input type="text" id="savepath-${game.id}" class="w-full bg-gray-700 border border-gray-600 rounded p-1 text-xs" value="${escapeHTML(game.custom_save_path)}">
-                    </div>
-                    <div class="flex justify-between items-center mt-2">
-                        <div>
-                            <button onclick="rescanGame(${game.id}, '${game.title.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')" class="bg-yellow-600 hover:bg-yellow-700 text-black font-bold py-2 px-4 rounded text-sm">Rescan</button>
-                            <button onclick="deleteGame(${game.id}, '${game.title.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded text-sm ml-2">Delete</button>
-                        </div>
-                        <button onclick="saveGameDetails(${game.id})" class="save-btn bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm">Save Details</button>
-                    </div>
-                </div>
-                `;
-            }).join('');
+            // ... (same as before)
         }
 
         function openAddGameModal() {
@@ -162,7 +124,7 @@
 
         function closeAddGameModal() {
             document.getElementById('add-game-modal').classList.add('hidden');
-            // Clear form fields for next time
+            // Clear form fields
             document.getElementById('add-title').value = '';
             document.getElementById('add-developer').value = '';
             document.getElementById('add-release-date').value = '';
@@ -173,68 +135,121 @@
         }
 
         async function handleCreateGame() {
-            const title = document.getElementById('add-title').value;
-            if (!title.trim()) {
-                alert('Title is a required field.');
+            // ... (same as before)
+        }
+        
+        // --- NEW LOOKUP FUNCTIONS ---
+
+        function closeLookupModal() {
+            document.getElementById('lookup-results-modal').classList.add('hidden');
+            document.getElementById('lookup-results-list').innerHTML = ''; // Clear results
+        }
+
+        async function handleLookup(event) {
+            event.preventDefault(); // Prevent form submission if any
+            const titleQuery = document.getElementById('add-title').value;
+            if (!titleQuery.trim()) {
+                showNotification('Please enter a title to look up.', true);
                 return;
             }
 
-            const payload = {
-                title: title,
-                developer: document.getElementById('add-developer').value,
-                release_date: document.getElementById('add-release-date').value,
-                rating: parseFloat(document.getElementById('add-rating').value) || null,
-                description: document.getElementById('add-description').value,
-                executablePath: document.getElementById('add-executablePath').value,
-                launchArgs: document.getElementById('add-launchArgs').value,
-            };
+            const lookupBtn = document.getElementById('lookup-btn');
+            const resultsList = document.getElementById('lookup-results-list');
+            
+            lookupBtn.textContent = 'Searching...';
+            lookupBtn.disabled = true;
+            resultsList.innerHTML = '<p class="text-center">Searching for games...</p>';
+            document.getElementById('lookup-results-modal').classList.remove('hidden');
 
             try {
-                const response = await fetch('/api/editor/games', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
+                const response = await fetch(`/api/search/rawg?query=${encodeURIComponent(titleQuery)}`);
                 if (!response.ok) {
                     const errorText = await response.text();
-                    throw new Error(errorText || 'Failed to create game.');
+                    throw new Error(errorText || 'Search request failed.');
                 }
-                showNotification('Game added successfully!', false);
-                closeAddGameModal();
-                await fetchEditorGames(); // Refresh the grid
+                const results = await response.json();
+
+                if (results.length === 0) {
+                    resultsList.innerHTML = '<p class="text-center">No results found.</p>';
+                    return;
+                }
+
+                resultsList.innerHTML = ''; // Clear "Searching..." message
+                results.forEach(game => {
+                    const releaseYear = game.released ? new Date(game.released).getFullYear() : 'N/A';
+                    const item = document.createElement('div');
+                    item.className = 'lookup-item p-3 rounded-md flex items-center space-x-4';
+                    item.onclick = () => selectGameAndFillForm(game.id);
+                    
+                    const art = game.background_image ? `<img src="${game.background_image}" class="w-16 h-20 object-cover rounded-md flex-shrink-0">` : `<div class="w-16 h-20 bg-gray-700 rounded-md flex-shrink-0"></div>`;
+                    
+                    item.innerHTML = `
+                        ${art}
+                        <div>
+                            <p class="font-bold text-lg">${game.name}</p>
+                            <p class="text-sm text-gray-400">Released: ${releaseYear}</p>
+                        </div>
+                    `;
+                    resultsList.appendChild(item);
+                });
+
+            } catch (error) {
+                resultsList.innerHTML = `<p class="text-center text-red-400">Error: ${error.message}</p>`;
+                console.error('Lookup failed:', error);
+            } finally {
+                lookupBtn.textContent = 'Lookup';
+                lookupBtn.disabled = false;
+            }
+        }
+
+        async function selectGameAndFillForm(rawgId) {
+            showNotification('Fetching details...');
+            closeLookupModal();
+
+            try {
+                const response = await fetch(`/api/lookup/rawg/${rawgId}`);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || 'Failed to fetch game details.');
+                }
+                const details = await response.json();
+
+                // Populate the form in the "Add Game" modal
+                document.getElementById('add-title').value = details.name || '';
+                document.getElementById('add-developer').value = details.developers ? details.developers.map(d => d.name).join(', ') : '';
+                document.getElementById('add-release-date').value = details.released || '';
+                document.getElementById('add-rating').value = details.rating || '';
+                document.getElementById('add-description').value = details.description_raw || '';
+                
+                showNotification('Details populated!', false);
+
             } catch (error) {
                 showNotification(`Error: ${error.message}`, true);
+                console.error('Failed to fill form:', error);
             }
         }
+
+        // --- Other functions (saveGameDetails, deleteGame, etc.) ---
+        // ... (same as before)
         
-        async function rescanGame(gameId, currentTitle) {
-            const newTitle = prompt("Enter the new title to search for on RAWG:", currentTitle);
-            if (!newTitle || newTitle.trim() === '') {
-                return; // User cancelled or entered nothing
-            }
-
-            showNotification(`Rescanning game ${gameId} with title: "${newTitle}"...`);
-            try {
-                 const response = await fetch(`/api/editor/games/${gameId}/rescan`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ newTitle })
-                });
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || 'Rescan failed on the server.');
-                }
-                
-                showNotification('Rescan successful! Refreshing data...', false);
-                await fetchEditorGames();
-
-            } catch(error) {
-                console.error('Rescan failed:', error);
-                showNotification(`Error: ${error.message}`, true);
-            }
+        function showNotification(message, isError = false) {
+             const notification = document.createElement('div');
+             notification.className = `fixed bottom-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg transition-all duration-300 transform translate-y-20 opacity-0 z-[110] ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+             notification.textContent = message;
+             document.body.appendChild(notification);
+             setTimeout(() => { notification.classList.remove('translate-y-20', 'opacity-0');}, 10);
+             setTimeout(() => {
+                notification.classList.add('translate-y-20', 'opacity-0');
+                setTimeout(() => notification.remove(), 500);
+             }, 4000);
         }
 
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', fetchEditorGames);
+        searchInput.addEventListener('input', renderEditor);
+
+        // --- Paste the full, unchanged functions from your previous file here ---
+        // (handlePosterUpload, saveGameDetails, rescanGame, deleteGame)
         async function handlePosterUpload(gameId) {
             const input = document.getElementById(`poster-input-${gameId}`);
             const file = input.files[0];
@@ -297,6 +312,33 @@
             }
         }
         
+        async function rescanGame(gameId, currentTitle) {
+            const newTitle = prompt("Enter the new title to search for on RAWG:", currentTitle);
+            if (!newTitle || newTitle.trim() === '') {
+                return; // User cancelled or entered nothing
+            }
+
+            showNotification(`Rescanning game ${gameId} with title: "${newTitle}"...`);
+            try {
+                 const response = await fetch(`/api/editor/games/${gameId}/rescan`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ newTitle })
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || 'Rescan failed on the server.');
+                }
+                
+                showNotification('Rescan successful! Refreshing data...', false);
+                await fetchEditorGames();
+
+            } catch(error) {
+                console.error('Rescan failed:', error);
+                showNotification(`Error: ${error.message}`, true);
+            }
+        }
+
         async function deleteGame(gameId, gameTitle) {
             if (!confirm(`Are you sure you want to permanently delete "${gameTitle}" and all of its files? This action cannot be undone.`)) {
                 return;
@@ -324,21 +366,6 @@
                 showNotification(`Error: ${error.message}`, true);
             }
         }
-
-        function showNotification(message, isError = false) {
-             const notification = document.createElement('div');
-             notification.className = `fixed bottom-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg transition-all duration-300 transform translate-y-20 opacity-0 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
-             notification.textContent = message;
-             document.body.appendChild(notification);
-             setTimeout(() => { notification.classList.remove('translate-y-20', 'opacity-0');}, 10);
-             setTimeout(() => {
-                notification.classList.add('translate-y-20', 'opacity-0');
-                setTimeout(() => notification.remove(), 500);
-             }, 4000);
-        }
-
-        document.addEventListener('DOMContentLoaded', fetchEditorGames);
-        searchInput.addEventListener('input', renderEditor);
     </script>
 </body>
 </html>

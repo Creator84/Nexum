@@ -26,8 +26,21 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
         # Serve files from the 'static' directory by default
         super().__init__(*args, directory=config.STATIC_FILES_PATH, **kwargs)
 
-    # --- ROUTING (do_GET, do_POST, etc.) ---
+    def _rawg_api_request(self, url):
+        """Helper function to make requests to the RAWG API."""
+        if not config.RAWG_API_KEY or config.RAWG_API_KEY == "YOUR_RAWG_API_KEY":
+            self.send_error(500, "RAWG API Key is not configured on the server.")
+            return None
+        try:
+            full_url = f"{url}&key={config.RAWG_API_KEY}"
+            response = requests.get(full_url, timeout=15)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            self.send_error(503, f"Could not connect to RAWG API: {e}")
+            return None
 
+    # --- ROUTING (do_GET, do_POST, etc.) ---
     def do_OPTIONS(self):
         self.send_response(200, "ok")
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -43,6 +56,27 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
         # API routes
         if path.startswith('/api/'):
             try:
+                # NEW: RAWG Search Endpoint
+                if path == '/api/search/rawg':
+                    query = parse_qs(parsed_path.query).get('query', [''])[0]
+                    if not query:
+                        return self.send_error(400, "Missing search query.")
+                    
+                    search_url = f"https://api.rawg.io/api/games?search={quote(query)}&page_size=10"
+                    data = self._rawg_api_request(search_url)
+                    if data:
+                        self._send_json_response(data.get('results', []))
+                    return
+
+                # NEW: RAWG Lookup Endpoint
+                if len(path_parts) == 4 and path_parts[0:3] == ['api', 'lookup', 'rawg']:
+                    game_id = path_parts[3]
+                    details_url = f"https://api.rawg.io/api/games/{game_id}?"
+                    data = self._rawg_api_request(details_url)
+                    if data:
+                        self._send_json_response(data)
+                    return
+
                 if path == '/api/games':
                     self.handle_get_games_paginated(parsed_path.query)
                 elif len(path_parts) == 4 and path_parts[0:2] == ['api', 'games'] and path_parts[3] == 'collections':
