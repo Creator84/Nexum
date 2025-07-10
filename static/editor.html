@@ -196,14 +196,14 @@
             editorGrid.className = 'card-grid';
             editorGrid.innerHTML = games.map(game => {
                 const artUrl = game.art_path ? game.art_path : 'https://placehold.co/300x450/1f2937/FFFFFF?text=No+Image';
+                const releaseYear = game.release_date ? new Date(game.release_date).getFullYear() : 'N/A';
                 return `
                     <div class="bg-gray-900 rounded-lg p-4 flex flex-col space-y-4" id="game-card-${game.id}">
                         <a href="game-details.html?id=${game.id}" class="game-link">
                             <img src="${artUrl}?_t=${Date.now()}" class="rounded w-full aspect-[2/3] object-cover" onerror="this.onerror=null;this.src='https://placehold.co/300x450/1f2937/FFFFFF?text=No+Image';">
-                            <h2 class="text-xl font-bold truncate mt-2">${game.title}</h2>
+                            <h2 class="text-lg font-bold truncate mt-2">${game.title} (${releaseYear})</h2>
                         </a>
-                    </div>
-                `;
+                    </div>`;
             }).join('');
         }
 
@@ -213,19 +213,22 @@
                 <table class="min-w-full bg-gray-900 rounded-lg overflow-hidden">
                     <thead class="bg-gray-800">
                         <tr>
-                            <th class="w-1/2 py-2 px-4 text-left text-sm font-bold text-gray-300 uppercase tracking-wider">Title</th>
-                            <th class="w-1/4 py-2 px-4 text-left text-sm font-bold text-gray-300 uppercase tracking-wider">Developer</th>
-                            <th class="w-1/4 py-2 px-4 text-left text-sm font-bold text-gray-300 uppercase tracking-wider">Rating</th>
+                            <th class="py-2 px-4 text-left text-sm font-bold text-gray-300 uppercase tracking-wider">Title</th>
+                            <th class="py-2 px-4 text-left text-sm font-bold text-gray-300 uppercase tracking-wider">Added</th>
+                            <th class="py-2 px-4 text-left text-sm font-bold text-gray-300 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="bg-gray-900 divide-y divide-gray-700">
                         ${games.map(game => `
                             <tr>
                                 <td class="py-2 px-4">
-                                    <a href="game-details.html?id=${game.id}" class="hover:text-blue-300">${game.title}</a>
+                                    ${game.title}
                                 </td>
-                                <td class="py-2 px-4">${game.developer || 'N/A'}</td>
-                                <td class="py-2 px-4">${game.rating !== null ? game.rating.toFixed(1) : 'N/A'}</td>
+                                <td class="py-2 px-4">${new Date(game.created_at).toLocaleDateString()}</td>
+                                <td class="py-2 px-4">
+                                    <a href="game-details.html?id=${game.id}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded mr-2">Edit</a>
+                                    <button onclick="deleteGame(${game.id}, '${game.title.replace(/'/g, "\\'")}')" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded">Delete</button>
+                                </td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -246,6 +249,7 @@
             document.getElementById('add-game-modal').classList.add('hidden');
             // Clear form fields
             document.getElementById('add-title').value = '';
+            document.getElementById('add-executablePath').value = '';
             document.getElementById('add-developer').value = '';
             document.getElementById('add-release-date').value = '';
             document.getElementById('add-rating').value = '';
