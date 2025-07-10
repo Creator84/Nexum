@@ -20,6 +20,9 @@
             cursor: pointer;
             transition: background-color 0.2s;
         }
+        .game-link {
+            transition: background-color 0.2s;
+        }
         .lookup-item:hover {
             background-color: #374151; /* gray-700 */
         }
@@ -30,7 +33,7 @@
     <div class="container mx-auto">
         <div class="flex justify-between items-center mb-4">
             <div>
-                <h1 class="text-3xl font-bold">GamePlex Database Editor</h1>
+                <h1 class="text-3xl font-bold">Nexum Database Editor</h1>
                 <p class="text-gray-400">Use this page to edit all game metadata. Changes are saved directly to the `gameplex.db` file.</p>
             </div>
             <button onclick="openAddGameModal()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add New Game</button>
@@ -40,7 +43,12 @@
              <input type="text" id="search-editor" placeholder="Filter games by title..." class="w-full bg-gray-700 border border-gray-600 rounded-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
 
-        <div id="editor-grid" class="card-grid">
+        <div class="flex justify-end mb-4 space-x-2">
+            <button onclick="switchView('grid')" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">Grid View</button>
+            <button onclick="switchView('list')" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">List View</button>
+        </div>
+
+        <div id="editor-grid" class="card-grid"> <!-- Default view -->
             <!-- Game editor cards will be injected here -->
         </div>
     </div>
@@ -104,6 +112,7 @@
         const editorGrid = document.getElementById('editor-grid');
         const searchInput = document.getElementById('search-editor');
         let allGamesData = [];
+        let currentView = 'grid'; // or 'list'
 
         function escapeHTML(str) {
             if (str === null || str === undefined) return '';
@@ -125,6 +134,9 @@
         function renderEditor() {
             const filter = searchInput.value.toLowerCase();
             const filteredGames = allGamesData.filter(game => game.title.toLowerCase().includes(filter));
+            
+            if (currentView === 'list') { renderEditorList(filteredGames); }
+            else { renderEditorGrid(filteredGames); }
 
             editorGrid.innerHTML = filteredGames.map(game => {
                 const artUrl = game.art_path ? `${game.art_path}` : 'https://placehold.co/300x450/1f2937/FFFFFF?text=No+Image';
@@ -180,6 +192,52 @@
             }).join('');
         }
 
+                function renderEditorGrid(games) {
+            editorGrid.className = 'card-grid';
+            editorGrid.innerHTML = games.map(game => {
+                const artUrl = game.art_path ? game.art_path : 'https://placehold.co/300x450/1f2937/FFFFFF?text=No+Image';
+                return `
+                    <div class="bg-gray-900 rounded-lg p-4 flex flex-col space-y-4" id="game-card-${game.id}">
+                        <a href="game-details.html?id=${game.id}" class="game-link">
+                            <img src="${artUrl}?_t=${Date.now()}" class="rounded w-full aspect-[2/3] object-cover" onerror="this.onerror=null;this.src='https://placehold.co/300x450/1f2937/FFFFFF?text=No+Image';">
+                            <h2 class="text-xl font-bold truncate mt-2">${game.title}</h2>
+                        </a>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderEditorList(games) {
+            editorGrid.className = '';  // Reset class to remove 'card-grid'
+            editorGrid.innerHTML = `
+                <table class="min-w-full bg-gray-900 rounded-lg overflow-hidden">
+                    <thead class="bg-gray-800">
+                        <tr>
+                            <th class="w-1/2 py-2 px-4 text-left text-sm font-bold text-gray-300 uppercase tracking-wider">Title</th>
+                            <th class="w-1/4 py-2 px-4 text-left text-sm font-bold text-gray-300 uppercase tracking-wider">Developer</th>
+                            <th class="w-1/4 py-2 px-4 text-left text-sm font-bold text-gray-300 uppercase tracking-wider">Rating</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-gray-900 divide-y divide-gray-700">
+                        ${games.map(game => `
+                            <tr>
+                                <td class="py-2 px-4">
+                                    <a href="game-details.html?id=${game.id}" class="hover:text-blue-300">${game.title}</a>
+                                </td>
+                                <td class="py-2 px-4">${game.developer || 'N/A'}</td>
+                                <td class="py-2 px-4">${game.rating !== null ? game.rating.toFixed(1) : 'N/A'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function switchView(view) {
+            currentView = view;
+            renderEditor();
+        }
+
         function openAddGameModal() {
             document.getElementById('add-game-modal').classList.remove('hidden');
         }
@@ -207,7 +265,7 @@
                 title: title,
                 developer: document.getElementById('add-developer').value,
                 release_date: document.getElementById('add-release-date').value,
-                rating: parseFloat(document.getElementById('add-rating').value) || null,
+                rating: parseFloat(document.getElementById('add-rating').value) || 0.0,
                 description: document.getElementById('add-description').value,
                 executablePath: document.getElementById('add-executablePath').value,
                 launchArgs: document.getElementById('add-launchArgs').value,
