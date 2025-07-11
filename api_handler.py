@@ -42,7 +42,7 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
             return None
 
     # --- ROUTING (do_GET, do_POST, etc.) ---
-     def do_OPTIONS(self):
+    def do_OPTIONS(self):
         self.send_response(200, "ok")
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
