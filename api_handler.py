@@ -424,7 +424,7 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
         conn.close()
         self._send_json_response(collections)
 
-     def handle_add_game(self):
+    def handle_add_game(self):
         """Handles POST /api/editor/games - creates a new game."""
         post_data = self._get_post_data()
         title = post_data.get('title')
