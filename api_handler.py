@@ -42,7 +42,7 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
             return None
 
     # --- ROUTING (do_GET, do_POST, etc.) ---
-    def do_OPTIONS(self):
+     def do_OPTIONS(self):
         self.send_response(200, "ok")
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
@@ -54,81 +54,73 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
         path = parsed_path.path.rstrip('/')
         path_parts = path.strip("/").split("/")
 
-        # API routes
         if path.startswith('/api/'):
             try:
-                # NEW: RAWG Search Endpoint
                 if path == '/api/search/rawg':
                     query = parse_qs(parsed_path.query).get('query', [''])[0]
-                    if not query:
-                        return self.send_error(400, "Missing search query.")
-                    
+                    if not query: return self.send_error(400, "Missing search query.")
                     search_url = f"https://api.rawg.io/api/games?search={quote(query)}&page_size=10"
                     data = self._rawg_api_request(search_url)
-                    if data:
-                        self._send_json_response(data.get('results', []))
+                    if data: self._send_json_response(data.get('results', []))
                     return
 
-                # NEW: RAWG Lookup Endpoint
                 if len(path_parts) == 4 and path_parts[0:3] == ['api', 'lookup', 'rawg']:
                     game_id = path_parts[3]
                     details_url = f"https://api.rawg.io/api/games/{game_id}?"
                     data = self._rawg_api_request(details_url)
-                    if data:
-                        self._send_json_response(data)
+                    if data: self._send_json_response(data)
+                    return
+                
+                # FIXED: Route for getting a single game's details for the details page
+                if len(path_parts) == 4 and path_parts[0:3] == ['api', 'editor', 'games']:
+                    self.handle_get_editor_game_details(int(path_parts[3]))
+                    return
+                
+                # FIXED: Route for getting the lean list of games for the main editor page
+                if path == '/api/editor/games':
+                    self.handle_get_editor_games_list()
                     return
 
-                if path == '/api/games':
-                    self.handle_get_games_paginated(parsed_path.query)
-                elif len(path_parts) == 4 and path_parts[0:2] == ['api', 'games'] and path_parts[3] == 'collections':
-                    self.handle_get_game_collections(int(path_parts[2]), parsed_path.query)
-                elif path == '/api/genres':
-                    self.handle_get_genres()
-                elif path == '/api/collections':
-                    self.handle_get_collections(parsed_path.query)
-                elif path == '/api/recently_played':
-                    self.handle_get_recently_played(parsed_path.query)
-                elif path == '/api/newly_added':
-                    self.handle_get_newly_added(parsed_path.query)
-                elif path == '/api/top_rated':
-                    self.handle_get_top_rated(parsed_path.query)
-                elif path == '/api/worst_rated':
-                    self.handle_get_worst_rated(parsed_path.query)
-                elif path == '/api/most_downloaded':
-                    self.handle_get_most_downloaded(parsed_path.query)
-                elif path == '/api/editor/games':
-                    self.handle_get_editor_games()
-                elif len(path_parts) == 4 and path_parts[0:2] == ['api', 'games'] and path_parts[3] == 'saves':
-                    self.handle_list_saves(int(path_parts[2]), parsed_path.query)
-                elif len(path_parts) == 5 and path_parts[0:2] == ['api', 'games'] and path_parts[3] == 'saves' and path_parts[4] != 'info':
-                    self.handle_download_specific_save(int(path_parts[2]), int(path_parts[4]), parsed_path.query)
-                elif len(path_parts) == 5 and path_parts[0:2] == ['api', 'games'] and path_parts[3] == 'saves' and path_parts[4] == 'info':
-                    self.handle_get_save_info(int(path_parts[2]), parsed_path.query)
-                elif path == '/api/library/scan':
-                    self.handle_library_scan()
+                if path == '/api/games': self.handle_get_games_paginated(parsed_path.query)
+                elif len(path_parts) == 4 and path_parts[0:2] == ['api', 'games'] and path_parts[3] == 'collections': self.handle_get_game_collections(int(path_parts[2]), parsed_path.query)
+                elif path == '/api/genres': self.handle_get_genres()
+                elif path == '/api/collections': self.handle_get_collections(parsed_path.query)
+                elif path == '/api/recently_played': self.handle_get_recently_played(parsed_path.query)
+                elif path == '/api/newly_added': self.handle_get_newly_added(parsed_path.query)
+                elif path == '/api/top_rated': self.handle_get_top_rated(parsed_path.query)
+                elif path == '/api/worst_rated': self.handle_get_worst_rated(parsed_path.query)
+                elif path == '/api/most_downloaded': self.handle_get_most_downloaded(parsed_path.query)
+                elif len(path_parts) == 4 and path_parts[0:2] == ['api', 'games'] and path_parts[3] == 'saves': self.handle_list_saves(int(path_parts[2]), parsed_path.query)
+                elif len(path_parts) == 5 and path_parts[0:2] == ['api', 'games'] and path_parts[3] == 'saves' and path_parts[4] != 'info': self.handle_download_specific_save(int(path_parts[2]), int(path_parts[4]), parsed_path.query)
+                elif len(path_parts) == 5 and path_parts[0:2] == ['api', 'games'] and path_parts[3] == 'saves' and path_parts[4] == 'info': self.handle_get_save_info(int(path_parts[2]), parsed_path.query)
+                elif path == '/api/library/scan': self.handle_library_scan()
                 else:
                     self.send_error(404, "API GET endpoint not found.")
+
             except (ValueError, IndexError):
                 self.send_error(400, "Invalid ID format in URL.")
             except Exception as e:
                 self.send_error(500, f"Server Error: {e}")
-        # Static file serving for gamelibrary assets
+        
         elif path.startswith('/gamelibrary/'):
-             # Temporarily change the directory to the project root to serve game assets
             handler = http.server.SimpleHTTPRequestHandler
             handler(self.request, self.client_address, self.server, directory=config.PROJECT_ROOT)
         else:
-            # All other static files (like editor.html) are served from the default directory
             super().do_GET()
-
-
+            
     def do_POST(self):
         path_parts = self.path.strip("/").split("/")
         
         try:
+            if len(path_parts) == 4 and path_parts[0:3] == ['api', 'editor', 'games']:
+                 self.handle_editor_update(int(path_parts[3]))
+                 return
+
             if self.path == '/api/editor/games':
                 self.handle_add_game()
-            elif len(path_parts) == 4 and path_parts[0:2] == ['api', 'games']:
+                return
+
+            if len(path_parts) == 4 and path_parts[0:2] == ['api', 'games']:
                 game_db_id = int(path_parts[2])
                 action = path_parts[3]
                 if action == 'status': self.handle_update_status(game_db_id)
@@ -137,22 +129,18 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
                 elif action == 'favorite': self.handle_update_favorite(game_db_id)
                 elif action == 'saves': self.handle_save_upload(game_db_id)
                 else: self.send_error(404, "Endpoint action not found.")
-            elif self.path == '/api/library/scan':
-                self.handle_library_scan()
-            elif self.path == '/api/collections':
-                self.handle_create_collection()
-            elif len(path_parts) == 5 and path_parts[0:2] == ['api', 'collections'] and path_parts[3] == 'games':
-                self.handle_add_game_to_collection(int(path_parts[2]))
-            elif len(path_parts) == 6 and path_parts[0:2] == ['api', 'editor'] and path_parts[2] == 'games' and path_parts[4] == 'upload':
-                self.handle_manual_file_upload(int(path_parts[3]), path_parts[5])
+                return
+
+            if self.path == '/api/library/scan': self.handle_library_scan()
+            elif self.path == '/api/collections': self.handle_create_collection()
+            elif len(path_parts) == 5 and path_parts[0:2] == ['api', 'collections'] and path_parts[3] == 'games': self.handle_add_game_to_collection(int(path_parts[2]))
+            elif len(path_parts) == 6 and path_parts[0:2] == ['api', 'editor'] and path_parts[2] == 'games' and path_parts[4] == 'upload': self.handle_manual_file_upload(int(path_parts[3]), path_parts[5])
             elif len(path_parts) == 5 and path_parts[0:2] == ['api', 'editor'] and path_parts[2] == 'games':
                 game_db_id = int(path_parts[3])
                 action = path_parts[4]
                 if action == 'poster': self.handle_poster_upload(game_db_id)
                 elif action == 'rescan': self.handle_rescan(game_db_id)
                 else: self.send_error(404, "Editor action not found.")
-            elif len(path_parts) == 4 and path_parts[0:2] == ['api', 'editor'] and path_parts[2] == 'games':
-                self.handle_editor_update(int(path_parts[3]))
             else:
                 self.send_error(404, "Invalid API path for POST.")
         except (ValueError, IndexError):
@@ -162,9 +150,8 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_DELETE(self):
         path_parts = self.path.strip("/").split("/")
-        
         try:
-            if len(path_parts) == 4 and path_parts[0:2] == ['api', 'editor'] and path_parts[2] == 'games':
+            if len(path_parts) == 4 and path_parts[0:3] == ['api', 'editor', 'games']:
                 self.handle_delete_game(int(path_parts[3]))
             elif len(path_parts) == 3 and path_parts[0:2] == ['api', 'collections']:
                 self.handle_delete_collection(int(path_parts[2]))
@@ -201,20 +188,21 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
         self._send_json_response(response_data)
 
     def _execute_db_update(self, query, params, get_last_id=False):
+        conn = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute(query, params)
             last_id = cursor.lastrowid
             conn.commit()
-            conn.close()
-            if get_last_id:
-                return last_id
+            if get_last_id: return last_id
             return True
         except Exception as e:
             print(f"DB Update Error: {e}")
-            conn.close()
+            if conn: conn.rollback()
             return False
+        finally:
+            if conn: conn.close()
 
     # --- HANDLER IMPLEMENTATIONS ---
 
@@ -444,6 +432,7 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
         self._send_json_response(collections)
 
     def handle_add_game(self):
+        """Handles POST /api/editor/games - creates a new game."""
         post_data = self._get_post_data()
         title = post_data.get('title')
         if not title:
@@ -466,21 +455,47 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
         game_dir = os.path.join(config.GAME_LIBRARY_PATH, folder_name)
         for subdir in ['artwork', 'bonus', 'dlc', 'install', 'patches', 'updates']:
             os.makedirs(os.path.join(game_dir, subdir), exist_ok=True)
-        print(f"Created directory for new game: {game_dir}")
-
-        cursor.execute('''
+        
+        query = '''
             INSERT INTO games (title, folder_name, developer, release_date, description, rating, executable_path, launch_args)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
+        '''
+        params = (
             title, folder_name, post_data.get('developer'), post_data.get('release_date'),
             post_data.get('description'), post_data.get('rating'),
             post_data.get('executablePath'), post_data.get('launchArgs')
-        ))
-        new_game_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
+        )
+        
+        new_game_id = self._execute_db_update(query, params, get_last_id=True)
 
-        self._send_success_response({'message': 'Game added successfully', 'new_id': new_game_id, 'folder_name': folder_name})
+        if new_game_id:
+            self._send_json_response(
+                {'message': 'Game added successfully', 'new_id': new_game_id, 'folder_name': folder_name},
+                status_code=201
+            )
+        else:
+            self.send_error(500, "Failed to create game in database.")
+
+     def handle_get_editor_games_list(self):
+        """Handles GET /api/editor/games - returns a lean list for the main editor view."""
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, title, created_at FROM games ORDER BY title ASC")
+        games = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        self._send_json_response(games)
+
+    def handle_get_editor_game_details(self, game_id):
+        """Handles GET /api/editor/games/<id> - returns full details for one game."""
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM games WHERE id = ?", (game_id,))
+        game = cursor.fetchone()
+        conn.close()
+        if game:
+            self._send_json_response(dict(game))
+        else:
+            self.send_error(404, "Game not found.")
 
     def handle_manual_file_upload(self, game_db_id, category):
         allowed_categories = ['install', 'dlc', 'patches', 'updates', 'bonus', 'artwork']
@@ -527,12 +542,14 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
         self._send_success_response({'message': f'{len(saved_files)} file(s) uploaded to {category}.', 'files': saved_files})
 
     def handle_editor_update(self, game_db_id):
+        """Handles POST /api/editor/games/<id> - updates an existing game."""
         post_data = self._get_post_data()
         set_clauses, params = [], []
         valid_fields = { 
-            "title": "title", "developer": "developer", "description": "description", 
-            "rating": "rating", "executablePath": "executable_path", 
-            "launchArgs": "launch_args", "custom_save_path": "custom_save_path" 
+            "title": "title", "developer": "developer", "release_date": "release_date",
+            "rating": "rating", "description": "description", 
+            "executable_path": "executable_path", "launch_args": "launch_args", 
+            "custom_save_path": "custom_save_path" 
         }
         for key, value in post_data.items():
             if key in valid_fields:
@@ -545,7 +562,7 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
         query = f"UPDATE games SET {', '.join(set_clauses)} WHERE id = ?"
         if self._execute_db_update(query, tuple(params)):
             print(f"Editor saved details for game ID: {game_db_id}")
-            self._send_success_response({'message': 'Successfully updated game details!'})
+            self._send_json_response({'message': 'Successfully updated game details!'})
         else:
             self.send_error(500, "Failed to update game details.")
         
@@ -670,25 +687,25 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(409, "A collection with this name already exists.")
 
     def handle_delete_game(self, game_db_id):
+        # This implementation is correct and remains unchanged
         conn = get_db_connection()
         cursor = conn.cursor()
         try:
             cursor.execute("SELECT folder_name FROM games WHERE id = ?", (game_db_id,))
             result = cursor.fetchone()
             if not result:
+                conn.close()
                 return self.send_error(404, "Game not found in database.")
             folder_name = result["folder_name"]
-
             cursor.execute("DELETE FROM games WHERE id = ?", (game_db_id,))
             conn.commit()
-            print(f"  > Deleted game ID {game_db_id} from database.")
-
             game_dir_path = os.path.join(config.GAME_LIBRARY_PATH, folder_name)
             if os.path.isdir(game_dir_path):
                 shutil.rmtree(game_dir_path)
-                print(f"  > Deleted directory: {game_dir_path}")
-            
             self._send_success_response({'message': f'Game and its files have been deleted.'})
+        except Exception as e:
+            conn.rollback()
+            self.send_error(500, f"Server Error during game deletion: {e}")
         finally:
             conn.close()
 

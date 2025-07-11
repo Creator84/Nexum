@@ -20,7 +20,7 @@ def _migrate_db_add_column(conn, table_name, column_name, column_def):
     cursor.execute(f"PRAGMA table_info({table_name})")
     columns = [row['name'] for row in cursor.fetchall()]
     if column_name in columns:
-        print(f"Column '{column_name}' already exists in '{table_name}'. Skipping migration.")
+        # This is not an error, just informational
         return
 
     print(f"Applying database migration: Adding '{column_name}' to '{table_name}' table...")
@@ -37,6 +37,8 @@ def _migrate_db(conn):
     print("Checking for database migrations...")
     try:
         _migrate_db_add_column(conn, "games", "custom_save_path", "TEXT")
+        # FIXED: Add migration for the created_at column
+        _migrate_db_add_column(conn, "games", "created_at", "DATETIME DEFAULT CURRENT_TIMESTAMP")
         print("Database migration check completed.")
     except Exception as e:
         print(f"Database migration failed: {e}")
@@ -60,7 +62,8 @@ def _init_db_tables(cursor):
             rating REAL,
             executable_path TEXT,
             launch_args TEXT,
-            custom_save_path TEXT
+            custom_save_path TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
 
@@ -69,8 +72,6 @@ def _init_db_tables(cursor):
     cursor.execute('CREATE TABLE IF NOT EXISTS game_genres (game_id INTEGER, genre_id INTEGER, FOREIGN KEY(game_id) REFERENCES games(id) ON DELETE CASCADE, FOREIGN KEY(genre_id) REFERENCES genres(id) ON DELETE CASCADE)')
     cursor.execute('CREATE TABLE IF NOT EXISTS screenshots (id INTEGER PRIMARY KEY, game_id INTEGER, path TEXT, FOREIGN KEY(game_id) REFERENCES games(id) ON DELETE CASCADE)')
     cursor.execute('CREATE TABLE IF NOT EXISTS install_files (id INTEGER PRIMARY KEY, game_id INTEGER, filename TEXT, FOREIGN KEY(game_id) REFERENCES games(id) ON DELETE CASCADE)')
-
-    # Tables for collections
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS collections (
             id INTEGER PRIMARY KEY,
@@ -88,8 +89,6 @@ def _init_db_tables(cursor):
             PRIMARY KEY (collection_id, game_id)
         )
     ''')
-
-    # Table for user-specific data
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_game_data (
             user_id TEXT,
@@ -117,3 +116,4 @@ def init_db():
     conn.commit()
     conn.close()
     print("--- Database Initialized ---")
+

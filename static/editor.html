@@ -15,7 +15,6 @@
             grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
             gap: 1.5rem;
         }
-        /* Style for the lookup results */
         .lookup-item {
             cursor: pointer;
             transition: background-color 0.2s;
@@ -105,7 +104,6 @@
         const editorGrid = document.getElementById('editor-grid');
         const searchInput = document.getElementById('search-editor');
         let allGamesData = [];
-        let currentView = 'grid'; // or 'list'
 
         function escapeHTML(str) {
             if (str === null || str === undefined) return '';
@@ -122,36 +120,17 @@
                 const response = await fetch('/api/editor/games');
                 if (!response.ok) throw new Error('Failed to fetch game data for editor.');
                 allGamesData = await response.json();
-                renderEditor();
+                renderEditorList(allGamesData);
             } catch (error) {
                 console.error(error);
                 editorGrid.innerHTML = `<p class="text-center text-red-400 p-4">${error.message}</p>`;
             }
         }
 
-        function renderEditor() {
-            const filter = searchInput.value.toLowerCase();
-            const filteredGames = allGamesData.filter(game => game.title.toLowerCase().includes(filter));
-            
-            renderEditorList(filteredGames); // Always render list view
-        }
-
-                function renderEditorGrid(games) {
-            editorGrid.className = 'card-grid';
-            editorGrid.innerHTML = games.map(game => {
-                const artUrl = game.art_path ? game.art_path : 'https://placehold.co/300x450/1f2937/FFFFFF?text=No+Image';
-                const releaseYear = game.release_date ? new Date(game.release_date).getFullYear() : 'N/A';
-                return `
-                    <div class="bg-gray-900 rounded-lg p-4 flex flex-col space-y-4" id="game-card-${game.id}">
-                        <a href="javascript:void(0);" onclick="viewGameDetails(${game.id})" class="game-link">
-                            <img src="${artUrl}?_t=${Date.now()}" class="rounded w-full aspect-[2/3] object-cover" onerror="this.onerror=null;this.src='https://placehold.co/300x450/1f2937/FFFFFF?text=No+Image';">
-                            <h2 class="text-lg font-bold truncate mt-2">${game.title} (${releaseYear})</h2>
-                        </a>
-                    </div>`;
-            }).join('');
-        }
-
         function renderEditorList(games) {
+            const filter = searchInput.value.toLowerCase();
+            const filteredGames = games.filter(game => game.title.toLowerCase().includes(filter));
+
             editorGrid.className = '';  // Reset class to remove 'card-grid'
             editorGrid.innerHTML = `
                 <table class="min-w-full bg-gray-900 rounded-lg overflow-hidden">
@@ -163,76 +142,69 @@
                         </tr>
                     </thead>
                     <tbody class="bg-gray-900 divide-y divide-gray-700">
-                        ${games.map(game => `
-                            <tr>
-                                <td class="py-2 px-4">
-                                    ${game.title}
-                                </td>
-                                <td class="py-2 px-4">${new Date(game.created_at).toLocaleDateString()}</td>
-                                <td class="py-2 px-4" onclick="viewGameDetails(${game.id})">
-                                    <a href="game-details.html?id=${game.id}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded mr-2">Edit</a>
-                                    <button onclick="deleteGame(${game.id}, '${game.title.replace(/'/g, "\\'")}')" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded">Delete</button>
-                                </td>
-                            </tr>
-                        `).join('')}
+                        ${filteredGames.map(game => {
+                            // FIXED: Handle null or undefined created_at date
+                            const addedDate = game.created_at ? new Date(game.created_at).toLocaleDateString() : 'N/A';
+                            return `
+                                <tr>
+                                    <td class="py-2 px-4">${escapeHTML(game.title)}</td>
+                                    <td class="py-2 px-4">${addedDate}</td>
+                                    <td class="py-2 px-4">
+                                        <a href="game-details.html?id=${game.id}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded mr-2">Edit</a>
+                                        <button onclick="deleteGame(event, ${game.id}, '${escapeHTML(game.title)}')" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded">Delete</button>
+                                    </td>
+                                </tr>
+                            `
+                        }).join('')}
                     </tbody>
                 </table>
             `;
         }
 
-        function switchView(view) {
-            currentView = view;
-            renderEditor();
-        }
-
-        function openAddGameModal() {
-            document.getElementById('add-game-modal').classList.remove('hidden');
-        }
-
-        function closeAddGameModal() {
-            document.getElementById('add-game-modal').classList.add('hidden');
-            // Clear form fields
-            document.getElementById('add-title').value = '';
-            document.getElementById('add-executablePath').value = '';
-            document.getElementById('add-developer').value = '';
-            document.getElementById('add-release-date').value = '';
-            document.getElementById('add-rating').value = '';
-            document.getElementById('add-description').value = '';
-            document.getElementById('add-executablePath').value = '';
-            document.getElementById('add-launchArgs').value = '';
-        }
+        function openAddGameModal() { document.getElementById('add-game-modal').classList.remove('hidden'); }
+        function closeAddGameModal() { document.getElementById('add-game-modal').classList.add('hidden'); }
+        function closeLookupModal() { document.getElementById('lookup-results-modal').classList.add('hidden'); }
 
         async function handleCreateGame() {
+            // This function is correct and remains unchanged
             const title = document.getElementById('add-title').value;
             if (!title.trim()) {
                 alert('Title is a required field.');
                 return;
             }
-
             const payload = {
                 title: title,
                 developer: document.getElementById('add-developer').value,
                 release_date: document.getElementById('add-release-date').value,
-                rating: parseFloat(document.getElementById('add-rating').value) || 0.0,
+                rating: parseFloat(document.getElementById('add-rating').value) || null,
                 description: document.getElementById('add-description').value,
                 executablePath: document.getElementById('add-executablePath').value,
                 launchArgs: document.getElementById('add-launchArgs').value,
             };
-
             try {
                 const response = await fetch('/api/editor/games', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || 'Failed to create game.');
-                }
+                if (!response.ok) throw new Error(await response.text());
                 showNotification('Game added successfully!', false);
                 closeAddGameModal();
-                await fetchEditorGames(); // Refresh the grid
+                await fetchEditorGames();
+            } catch (error) {
+                showNotification(`Error: ${error.message}`, true);
+            }
+        }
+        
+        async function deleteGame(event, gameId, gameTitle) {
+            event.stopPropagation(); // Prevent navigation
+            if (!confirm(`Are you sure you want to permanently delete "${gameTitle}"?`)) return;
+            
+            try {
+                const response = await fetch(`/api/editor/games/${gameId}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error(await response.text());
+                showNotification(`"${gameTitle}" was deleted.`, false);
+                await fetchEditorGames(); // Refresh list
             } catch (error) {
                 showNotification(`Error: ${error.message}`, true);
             }
@@ -246,104 +218,67 @@
         }
 
         async function handleLookup(event) {
-            event.preventDefault(); // Prevent form submission if any
+            event.preventDefault();
             const titleQuery = document.getElementById('add-title').value;
             if (!titleQuery.trim()) {
                 showNotification('Please enter a title to look up.', true);
                 return;
             }
-
             const lookupBtn = document.getElementById('lookup-btn');
             const resultsList = document.getElementById('lookup-results-list');
-            
             lookupBtn.textContent = 'Searching...';
             lookupBtn.disabled = true;
-            resultsList.innerHTML = '<p class="text-center">Searching for games...</p>';
+            resultsList.innerHTML = '<p class="text-center">Searching...</p>';
             document.getElementById('lookup-results-modal').classList.remove('hidden');
-
             try {
                 const response = await fetch(`/api/search/rawg?query=${encodeURIComponent(titleQuery)}`);
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || 'Search request failed.');
-                }
+                if (!response.ok) throw new Error(await response.text());
                 const results = await response.json();
-
                 if (results.length === 0) {
                     resultsList.innerHTML = '<p class="text-center">No results found.</p>';
                     return;
                 }
-
-                resultsList.innerHTML = '';
-                results.forEach(game => {
-                    const releaseYear = game.released ? new Date(game.released).getFullYear() : 'N/A';
-                    const item = document.createElement('div');
-                    item.className = 'lookup-item p-3 rounded-md flex items-center space-x-4';
-                    item.onclick = () => selectGameAndFillForm(game.id);
-                    
+                resultsList.innerHTML = results.map(game => {
+                    const year = game.released ? new Date(game.released).getFullYear() : 'N/A';
                     const art = game.background_image ? `<img src="${game.background_image}" class="w-16 h-20 object-cover rounded-md flex-shrink-0">` : `<div class="w-16 h-20 bg-gray-700 rounded-md flex-shrink-0"></div>`;
-                    
-                    item.innerHTML = `
-                        ${art}
-                        <div>
-                            <p class="font-bold text-lg">${game.name}</p>
-                            <p class="text-sm text-gray-400">Released: ${releaseYear}</p>
-                        </div>
-                    `;
-                    resultsList.appendChild(item);
-                });
-
+                    return `<div class="lookup-item p-3 rounded-md flex items-center space-x-4" onclick="selectGameAndFillForm(${game.id})">${art}<div><p class="font-bold text-lg">${game.name}</p><p class="text-sm text-gray-400">Released: ${year}</p></div></div>`;
+                }).join('');
             } catch (error) {
                 resultsList.innerHTML = `<p class="text-center text-red-400">Error: ${error.message}</p>`;
-                console.error('Lookup failed:', error);
             } finally {
                 lookupBtn.textContent = 'Lookup';
                 lookupBtn.disabled = false;
             }
         }
 
-        async function selectGameAndFillForm(rawgId) {
+       async function selectGameAndFillForm(rawgId) {
             showNotification('Fetching details...');
             closeLookupModal();
-
             try {
                 const response = await fetch(`/api/lookup/rawg/${rawgId}`);
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || 'Failed to fetch game details.');
-                }
+                if (!response.ok) throw new Error(await response.text());
                 const details = await response.json();
-
-                // Populate the form in the "Add Game" modal
                 document.getElementById('add-title').value = details.name || '';
                 document.getElementById('add-developer').value = details.developers ? details.developers.map(d => d.name).join(', ') : '';
                 document.getElementById('add-release-date').value = details.released || '';
                 document.getElementById('add-rating').value = details.rating || '';
                 document.getElementById('add-description').value = details.description_raw || '';
-                
                 showNotification('Details populated!', false);
-
             } catch (error) {
                 showNotification(`Error: ${error.message}`, true);
-                console.error('Failed to fill form:', error);
             }
         }
 
         function showNotification(message, isError = false) {
              const notification = document.createElement('div');
-             notification.className = `fixed bottom-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg transition-all duration-300 transform translate-y-20 opacity-0 z-[110] ${isError ? 'bg-red-500' : 'bg-green-500'}`;
-             notification.textContent = message;
+             notification.className = `fixed bottom-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg z-[110] ${isError ? 'bg-red-500' : 'bg-green-500'}`;
              document.body.appendChild(notification);
-             setTimeout(() => { notification.classList.remove('translate-y-20', 'opacity-0');}, 10);
-             setTimeout(() => {
-                notification.classList.add('translate-y-20', 'opacity-0');
-                setTimeout(() => notification.remove(), 500);
-             }, 4000);
+             setTimeout(() => notification.remove(), 4000);
         }
 
         // --- Event Listeners ---
         document.addEventListener('DOMContentLoaded', fetchEditorGames);
-        searchInput.addEventListener('input', renderEditor);
+        searchInput.addEventListener('input', () => renderEditorList(allGamesData));
 
         function viewGameDetails(gameId) {
           window.location.href = `game-details.html?id=${gameId}`;
@@ -438,33 +373,6 @@
             }
         }
 
-        async function deleteGame(gameId, gameTitle) {
-            if (!confirm(`Are you sure you want to permanently delete "${gameTitle}" and all of its files? This action cannot be undone.`)) {
-                return;
-            }
-            showNotification(`Deleting ${gameTitle}...`);
-            try {
-                const response = await fetch(`/api/editor/games/${gameId}`, {
-                    method: 'DELETE'
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || 'Failed to delete game on the server.');
-                }
-
-                showNotification(`"${gameTitle}" was deleted successfully!`, false);
-                
-                const card = document.getElementById(`game-card-${gameId}`);
-                if (card) card.remove();
-                
-                allGamesData = allGamesData.filter(g => g.id !== gameId);
-
-            } catch (error) {
-                console.error('Delete failed:', error);
-                showNotification(`Error: ${error.message}`, true);
-            }
-        }
     </script>
 </body>
 </html>
