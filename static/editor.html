@@ -204,7 +204,7 @@
                 const releaseYear = game.release_date ? new Date(game.release_date).getFullYear() : 'N/A';
                 return `
                     <div class="bg-gray-900 rounded-lg p-4 flex flex-col space-y-4" id="game-card-${game.id}">
-                        <a href="game-details.html?id=${game.id}" class="game-link">
+                        <a href="javascript:void(0);" onclick="viewGameDetails(${game.id})" class="game-link">
                             <img src="${artUrl}?_t=${Date.now()}" class="rounded w-full aspect-[2/3] object-cover" onerror="this.onerror=null;this.src='https://placehold.co/300x450/1f2937/FFFFFF?text=No+Image';">
                             <h2 class="text-lg font-bold truncate mt-2">${game.title} (${releaseYear})</h2>
                         </a>
@@ -230,7 +230,7 @@
                                     ${game.title}
                                 </td>
                                 <td class="py-2 px-4">${new Date(game.created_at).toLocaleDateString()}</td>
-                                <td class="py-2 px-4">
+                                <td class="py-2 px-4" onclick="viewGameDetails(${game.id})">
                                     <a href="game-details.html?id=${game.id}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded mr-2">Edit</a>
                                     <button onclick="deleteGame(${game.id}, '${game.title.replace(/'/g, "\\'")}')" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded">Delete</button>
                                 </td>
@@ -405,6 +405,10 @@
         // --- Event Listeners ---
         document.addEventListener('DOMContentLoaded', fetchEditorGames);
         searchInput.addEventListener('input', renderEditor);
+
+        function viewGameDetails(gameId) {
+          window.location.href = `game-details.html?id=${gameId}`;
+        }
 
         async function handlePosterUpload(gameId) {
             const input = document.getElementById(`poster-input-${gameId}`);
