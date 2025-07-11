@@ -133,8 +133,7 @@
             const filter = searchInput.value.toLowerCase();
             const filteredGames = allGamesData.filter(game => game.title.toLowerCase().includes(filter));
             
-            if (currentView === 'list') { renderEditorList(filteredGames); }
-            else { renderEditorGrid(filteredGames); }
+            renderEditorList(filteredGames); // Always render list view
 
             editorGrid.innerHTML = filteredGames.map(game => {
                 const artUrl = game.art_path ? `${game.art_path}` : 'https://placehold.co/300x450/1f2937/FFFFFF?text=No+Image';
