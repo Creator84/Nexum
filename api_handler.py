@@ -488,6 +488,7 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
         if game:
             self._send_json_response(dict(game))
         else:
+            self.send_error(404, "Game not found.")
 
     def handle_manual_file_upload(self, game_db_id, category):
         allowed_categories = ['install', 'dlc', 'patches', 'updates', 'bonus', 'artwork']
