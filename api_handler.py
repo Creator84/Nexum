@@ -476,7 +476,7 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
         else:
             self.send_error(500, "Failed to create game in database.")
 
-     def handle_get_editor_games_list(self):
+    def handle_get_editor_games_list(self):
         """Handles GET /api/editor/games - returns a lean list for the main editor view."""
         conn = get_db_connection()
         cursor = conn.cursor()
