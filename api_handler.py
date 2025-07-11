@@ -81,6 +81,7 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
                     self.handle_get_editor_games_list()
                     return
 
+                # Fallback to other API routes
                 if path == '/api/games': self.handle_get_games_paginated(parsed_path.query)
                 elif len(path_parts) == 4 and path_parts[0:2] == ['api', 'games'] and path_parts[3] == 'collections': self.handle_get_game_collections(int(path_parts[2]), parsed_path.query)
                 elif path == '/api/genres': self.handle_get_genres()
@@ -107,7 +108,7 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
             handler(self.request, self.client_address, self.server, directory=config.PROJECT_ROOT)
         else:
             super().do_GET()
-            
+
     def do_POST(self):
         path_parts = self.path.strip("/").split("/")
         
@@ -166,7 +167,6 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             self.send_error(500, f"Server Error: {e}")
 
-
     # --- HELPERS ---
 
     def _get_post_data(self):
@@ -180,12 +180,6 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(json.dumps(data).encode('utf-8'))
-
-    def _send_success_response(self, data=None):
-        response_data = {'success': True}
-        if data:
-            response_data.update(data)
-        self._send_json_response(response_data)
 
     def _execute_db_update(self, query, params, get_last_id=False):
         conn = None
@@ -203,7 +197,6 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
             return False
         finally:
             if conn: conn.close()
-
     # --- HANDLER IMPLEMENTATIONS ---
 
     def handle_get_genres(self):
@@ -431,7 +424,7 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
         conn.close()
         self._send_json_response(collections)
 
-    def handle_add_game(self):
+     def handle_add_game(self):
         """Handles POST /api/editor/games - creates a new game."""
         post_data = self._get_post_data()
         title = post_data.get('title')
@@ -495,7 +488,6 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
         if game:
             self._send_json_response(dict(game))
         else:
-            self.send_error(404, "Game not found.")
 
     def handle_manual_file_upload(self, game_db_id, category):
         allowed_categories = ['install', 'dlc', 'patches', 'updates', 'bonus', 'artwork']
@@ -687,7 +679,6 @@ class GameAPIHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(409, "A collection with this name already exists.")
 
     def handle_delete_game(self, game_db_id):
-        # This implementation is correct and remains unchanged
         conn = get_db_connection()
         cursor = conn.cursor()
         try:

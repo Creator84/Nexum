@@ -143,7 +143,6 @@
                     </thead>
                     <tbody class="bg-gray-900 divide-y divide-gray-700">
                         ${filteredGames.map(game => {
-                            // FIXED: Handle null or undefined created_at date
                             const addedDate = game.created_at ? new Date(game.created_at).toLocaleDateString() : 'N/A';
                             return `
                                 <tr>
